@@ -13,7 +13,7 @@ re_wm_explore_test_() ->
         fun () -> ok end,
         fun (_) -> ok end,
         {timeout, 60, [
-            expected_data(),
+            assert_ping(),
             assert_list_types()
         ]}
     }.
@@ -22,18 +22,22 @@ re_wm_explore_test_() ->
 %%% ACTUAL TESTS %%%
 %%%%%%%%%%%%%%%%%%%%
 
-expected_data() ->
-  [
-   ?_assertEqual({ok, "200", home()}, ret:http(get, ret:url("/"))),
-   ?_assertEqual({ok, "200", ping()}, ret:http(get, ret:url("/ping")))
-  ].
+assert_ping() ->
+    {Ok, Code, Payload} = ret:http(get, ret:url("ping")),
+    Pong = get_result_json_field(Payload, <<"ping">>, <<"message">>),
+    Expected = <<"pong">>,
+    [
+     ?_assertEqual(ok, Ok),
+     ?_assertEqual("200", Code),
+     ?_assertEqual(Expected, Pong)
+    ].
 
 assert_list_types() ->
-  {Ok, Code, Payload} = ret:http(get, ret:url("/bucket_types")),
-  {_,[{<<"bucket_types">>, [{_,DefaultType} | _]}]} = mochijson2:decode(Payload),
-  [DefaultName, {<<"props">>, _}] = DefaultType,
-  Expected = {<<"name">>,<<"default">>},
-
+    {Ok, Code, Payload} = ret:http(get, ret:url("clusters/default/bucket_types")),
+    {_,ResultsList} = mochijson2:decode(Payload),
+    [{_,DefaultType}|_] = proplists:get_value(<<"bucket_types">>, ResultsList),
+    [DefaultName, {<<"props">>, _}] = DefaultType,
+    Expected = {<<"id">>,<<"default">>},
   [
    ?_assertEqual(ok, Ok),
    ?_assertEqual("200", Code),
@@ -43,12 +47,10 @@ assert_list_types() ->
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%% HELPER FUNCTIONS %%%
 %%%%%%%%%%%%%%%%%%%%%%%%
-
-home() ->
-  render_json([{message, <<"riak_explorer api">>}]).
-
-ping() ->
-  render_json([{message, <<"pong">>}]).
+get_result_json_field(JsonString, Call, Field) ->
+    {_, Json} = mochijson2:decode(JsonString),
+    {_, CallPropList} = proplists:get_value(Call, Json),
+    proplists:get_value(Field, CallPropList).
 
 render_json(Data) ->
     Body = binary_to_list(list_to_binary(mochijson2:encode(Data))),

@@ -73,7 +73,7 @@ jobs_for_resource(_Node, _BucketType, _Bucket) ->
 -ifdef(TEST).
 
 ping_test() ->
-    Expected = [{message, <<"pong">>}],
+    Expected = [{ping, [{id, <<"ping">>}, {message, <<"pong">>}]}],
     ?assertEqual(Expected, ping()).
 
 -endif.
